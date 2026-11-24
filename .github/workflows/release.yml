@@ -1,0 +1,84 @@
+name: Release APK (signed)
+
+# Cara pakai: buat tag, misalnya  git tag v1.0.0 && git push origin v1.0.0
+# atau jalankan manual lewat tab Actions. APK bertanda tangan akan muncul di halaman Releases.
+# Butuh 4 secret keystore, lihat README bagian "Rilis APK".
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      versi:
+        description: "Nomor versi tanpa huruf v, mis. 1.0.0"
+        required: true
+        default: "1.0.0"
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      KS_B64: ${{ secrets.KEYSTORE_BASE64 }}
+      KS_PASS: ${{ secrets.KEYSTORE_PASSWORD }}
+      KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+      KEY_PASS: ${{ secrets.KEY_PASSWORD }}
+      INPUT_VER: ${{ inputs.versi }}
+    steps:
+      - name: Cek secrets dan nomor versi
+        run: |
+          test -n "$KS_B64" -a -n "$KS_PASS" -a -n "$KEY_ALIAS" -a -n "$KEY_PASS" || { echo "::error::Secret keystore belum lengkap. Lihat README bagian Rilis APK."; exit 1; }
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then V="${GITHUB_REF_NAME#v}"; else V="$INPUT_VER"; fi
+          echo "$V" | grep -Eq '^[0-9]+(\.[0-9]+){1,2}$' || { echo "::error::Nomor versi tidak valid: $V (contoh 1.0.0)"; exit 1; }
+          echo "VERSION=$V" >> "$GITHUB_ENV"
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 17 }
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ hashFiles('package.json', 'package-lock.json') }}
+      - run: if [ -f package-lock.json ]; then npm ci; else npm install; fi
+      - run: npx cap add android
+      - name: Izin notifikasi Android
+        run: sed -i 's#</manifest>#    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n</manifest>#' android/app/src/main/AndroidManifest.xml
+      - name: Ikon dan splash screen
+        continue-on-error: true
+        run: npx capacitor-assets generate --android
+      - name: Nomor versi
+        run: |
+          sed -i "s/versionCode 1/versionCode ${{ github.run_number }}/; s/versionName \"1.0\"/versionName \"$VERSION\"/" android/app/build.gradle
+          grep -q "versionName \"$VERSION\"" android/app/build.gradle || { echo "::error::Gagal mengisi versionName"; exit 1; }
+      - run: npx cap sync android
+      - run: cd android && chmod +x gradlew && ./gradlew assembleRelease
+      - name: Tanda tangan APK
+        run: |
+          echo "$KS_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          APK=$(find android/app/build/outputs/apk/release -name '*.apk' | head -1)
+          test -n "$APK" || { echo "::error::APK release tidak ditemukan"; exit 1; }
+          mkdir -p out
+          "$BT/zipalign" -p -f 4 "$APK" "$RUNNER_TEMP/aligned.apk"
+          "$BT/apksigner" sign --ks "$RUNNER_TEMP/release.jks" --ks-pass env:KS_PASS --ks-key-alias "$KEY_ALIAS" --key-pass env:KEY_PASS --out "out/reservasi-ruangan-v$VERSION.apk" "$RUNNER_TEMP/aligned.apk"
+          "$BT/apksigner" verify --print-certs "out/reservasi-ruangan-v$VERSION.apk"
+          rm -f "$RUNNER_TEMP/release.jks"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reservasi-ruangan-release
+          path: out/
+      - name: Buat GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.VERSION }}
+          name: Reservasi Ruangan v${{ env.VERSION }}
+          files: out/*.apk
+          generate_release_notes: true
