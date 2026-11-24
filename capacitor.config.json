@@ -1,1 +1,0 @@
-{"appId": "com.marketing.reservasi", "appName": "Ballroom", "webDir": "www", "backgroundColor": "#1e3a8a", "server": {"androidScheme": "https"}, "android": {"allowMixedContent": false}, "plugins": {"CapacitorHttp": {"enabled": true}}}
