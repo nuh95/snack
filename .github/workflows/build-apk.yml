@@ -45,6 +45,6 @@ jobs:
       - run: cd android && chmod +x gradlew && ./gradlew assembleDebug
       - uses: actions/upload-artifact@v4
         with:
-          name: reservasi-ruangan-debug-apk
+          name: snack-debug-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
