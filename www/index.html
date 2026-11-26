@@ -149,7 +149,7 @@ const C=[['c1','Bu Ratna','6281234567801','Jl. Melati 12'],['c2','Kantor Maju Ja
 const O=[[1,'c1',0,'10:00','Ambil',[['p1',4],['p2',2]],150000,150000,'Terkunci'],[2,'c2',0,'13:00','Antar',[['p3',20],['p4',20]],0,0,'Dikonfirmasi'],[3,'c3',0,'16:30','Ambil',[['p6',6]],100000,100000,'Diproduksi'],[4,'c4',1,'09:00','Antar',[['p5',40],['p3',10]],500000,500000,'Terkunci'],[5,'c5',2,'11:00','Ambil',[['p1',6]],510000,510000,'Dikonfirmasi'],[6,'c1',2,'15:00','Ambil',[['p2',3],['p6',3]],200000,200000,'Terkunci'],[7,'c2',3,'10:00','Antar',[['p4',30],['p3',30]],800000,800000,'Terkunci'],[8,'c3',-1,'14:00','Ambil',[['p1',2]],170000,170000,'Selesai'],[9,'c4',-2,'08:00','Antar',[['p5',60]],500000,1510000,'Selesai']].map(x=>({id:'o'+x[0],no:'PO-'+pad(x[0]),c:x[1],tgl:add(TODAY,x[2]),jam:x[3],met:x[4],it:x[5].map(i=>({p:i[0],q:i[1]})),dp:x[6],paid:x[7],st:x[8],n:''}));
 O[8].paid=O[8].it.reduce((s,i)=>s+i.q*25000,0)+ONGKIR;
 return{prods:P,custs:C,orders:O,done:{},seq:10,set:{cap:300,ongkir:10000,minh:1}}};
-const mig=d=>{(d.orders||[]).forEach(o=>{if(o.st==='Terkunci')o.st='Dikonfirmasi'});return d};
+const mig=d=>{(d.orders||[]).forEach(o=>{if(o.st==='Terkunci')o.st='Dikonfirmasi'});d.made=d.made||{};return d};
 let S=null;try{S=JSON.parse(localStorage.getItem('snk1'))}catch(e){}
 if(!S||!S.orders||!S.orders.length)S=seed();
 S=mig(S);
@@ -183,7 +183,8 @@ function pes(){return'<input id="q" placeholder="Cari nama atau nomor pesanan" v
 const MKK='snk-made';let MK={};try{MK=JSON.parse(localStorage.getItem(MKK))||{}}catch(e){}
 try{const lim=add(TODAY,-60);Object.keys(MK).forEach(k=>{if(k.slice(0,10)<lim)delete MK[k]})}catch(e){}
 const saveMK=()=>{try{localStorage.setItem(MKK,JSON.stringify(MK))}catch(e){}};
-const madeOf=(k,t)=>{const key=PD+'|'+k;if(S.done[key])return t;return Math.max(0,Math.min(MK[key]||0,t-1))};
+const MD=()=>S.made||(S.made={});
+const madeOf=(k,t)=>{const key=PD+'|'+k;if(S.done[key])return t;const v=MD()[key];return Math.max(0,Math.min(v==null?(MK[key]||0):v,t-1))};
 const sisaCls=(m,t)=>'sisa'+(m>=t?' ok':''),sisaTx=(m,t)=>m>=t?'Selesai':'Sisa '+(t-m);
 function updCard(card,k,t){const m=madeOf(k,t),d=t>0&&m>=t,ck=card.querySelector('.ck');card.classList.toggle('done',d);ck.classList.toggle('on',d);ck.innerHTML=d?ic('check'):'';ck.setAttribute('aria-label',d?'Batalkan selesai':'Tandai selesai semua');const sc=card.querySelector('.sisa');sc.className=sisaCls(m,t);sc.textContent=sisaTx(m,t);const dn=$('#dn');if(dn)dn.textContent=document.querySelectorAll('.pc.done').length}
 function prodv(){const os=S.orders.filter(o=>o.tgl===PD&&(o.st==='Dikonfirmasi'||o.st==='Diproduksi')),wt=S.orders.filter(o=>o.tgl===PD&&o.st==='Baru').length,ag={};
@@ -254,7 +255,7 @@ return'<div class="tiles"><div class="card"><div class="mu">Omzet</div><div clas
 +'<h2>'+(B?'Omzet per Tanggal Ambil/Antar':'Omzet per Bulan')+'</h2><div class="card"><div class="hb'+(B?' d':'')+'">'+v.map((x,i)=>'<div class="'+(cur[i]?'t':'')+'"><i style="height:'+Math.max(2,x/mx*72)+'px"></i>'+lb[i]+'</div>').join('')+'</div><div class="mu">Hijau: '+(B?'hari ini':'bulan ini')+'</div></div>'
 +'<h2>Total Omzet Berdasarkan Status PO</h2><div class="card">'+STO.map((k,i)=>{const l=mo.filter(o=>stl(o)===k),v=l.reduce((x,o)=>x+tot(o),0);return'<div style="padding:9px 0;'+(i?'border-top:1px solid var(--line)':'')+(l.length?'':';opacity:.55')+'"><div class="row"><span><span class="chip '+CH[k]+'">'+k+'</span> <span class="mu">&nbsp;'+l.length+' PO</span></span><b>'+rp(v)+'</b></div><div class="bar" style="margin:8px 0 0;height:6px"><i style="width:'+(om?v/om*100:0)+'%"></i></div></div>'}).join('')+'<div class="row" style="padding-top:10px;border-top:1px solid var(--line)"><b>Total omzet</b><b>'+rp(om)+'</b></div>'+(cx.length?'<div class="mu" style="margin-top:6px">Dibatalkan: '+cx.length+' PO ('+rp(cx.reduce((x,o)=>x+tot(o),0))+'), tidak dihitung dalam omzet.</div>':'')+'</div>'
 +'<h2>Produk terlaris</h2>'+(top.length?top.map(k=>'<div class="card row"><b>'+esc(prod(k).nama)+'</b><span>'+tp[k]+' '+esc(prod(k).sat.toLowerCase())+'</span></div>').join(''):'<div class="empty">Belum ada pesanan pada periode ini.</div>')}
-function render(){$('#v').innerHTML=({home:home,pes:pes,prod:prodv,piu:piuv,data:datav,lap:lapv})[TAB]();$('#ttl').textContent=TITLES[TAB];$('#sub').textContent=fd(TODAY)+' · '+S.orders.filter(o=>o.tgl===TODAY&&live(o)).length+' pesanan';const q=dayQty(TODAY);$('#cap').textContent=q+'/'+CAP+' unit';
+function render(){const ae=document.activeElement,fk=ae&&ae.classList&&ae.classList.contains('mi')?ae.dataset.k:null,fs=fk!=null?ae.selectionStart:0;$('#v').innerHTML=({home:home,pes:pes,prod:prodv,piu:piuv,data:datav,lap:lapv})[TAB]();if(fk!=null){const el=[...document.querySelectorAll('.mi')].find(x=>x.dataset.k===fk);if(el){el.focus();try{el.setSelectionRange(fs,fs)}catch(e){}}}$('#ttl').textContent=TITLES[TAB];$('#sub').textContent=fd(TODAY)+' · '+S.orders.filter(o=>o.tgl===TODAY&&live(o)).length+' pesanan';const q=dayQty(TODAY);$('#cap').textContent=q+'/'+CAP+' unit';
 $('#nv').innerHTML=[['home','Beranda'],['pes','Pesanan','list'],['prod','Produksi','pot'],['data','Data','users'],['lap','Laporan','chart']].map(t=>'<button class="'+(TAB===t[0]?'on':'')+'" data-a="tab" data-t="'+t[0]+'">'+ic(t[2]||'home')+t[1]+'</button>').join('');window.scrollTo(0,0)}
 function sheet(h){$('#sh').innerHTML='<div class="bd" data-a="close"></div><div class="sd">'+h+'</div>';$('#sh').hidden=false}
 function closeS(){closePK();$('#sh').hidden=true;$('#sh').innerHTML='';NO=null}
@@ -317,7 +318,7 @@ const fbMsg=t=>{FBst=t;const e=$('#fbm');if(e)e.textContent=t};
 const fbErr=e=>{const m=(e&&e.message)||String(e);return m==='Failed to fetch'||/network/i.test(m)?'tidak ada koneksi internet':m};
 const hs=s=>{let a=0xdeadbeef,b=0x41c6ce57;for(let i=0,c;i<s.length;i++){c=s.charCodeAt(i);a=Math.imul(a^c,2654435761);b=Math.imul(b^c,1597334677)}a=Math.imul(a^(a>>>16),2246822507)^Math.imul(b^(b>>>13),3266489909);b=Math.imul(b^(b>>>16),2246822507)^Math.imul(a^(a>>>13),3266489909);return(4294967296*(2097151&b)+(a>>>0)).toString(36)};
 // isi data HP ini dipecah per node: o_ pesanan, c_ pelanggan, p_ produk, d_ centang produksi, x_ pengaturan dan nomor urut
-function fbEnts(){const E={};S.orders.forEach(o=>E['o_'+o.id]=JSON.stringify(o));S.custs.forEach(c=>E['c_'+c.id]=JSON.stringify(c));S.prods.forEach(p=>E['p_'+p.id]=JSON.stringify(p));Object.keys(S.done||{}).forEach(k=>E['d_'+k]=JSON.stringify(S.done[k]));E.x_set=JSON.stringify(S.set||{});E.x_seq=JSON.stringify(S.seq||0);return E}
+function fbEnts(){const E={};S.orders.forEach(o=>E['o_'+o.id]=JSON.stringify(o));S.custs.forEach(c=>E['c_'+c.id]=JSON.stringify(c));S.prods.forEach(p=>E['p_'+p.id]=JSON.stringify(p));Object.keys(S.done||{}).forEach(k=>E['d_'+k]=JSON.stringify(S.done[k]));Object.keys(S.made||{}).forEach(k=>E['q_'+k]=JSON.stringify(S.made[k]));E.x_set=JSON.stringify(S.set||{});E.x_seq=JSON.stringify(S.seq||0);return E}
 function fbDiff(E){const o=[];for(const k in E)if(FS.snap[k]!==hs(E[k]))o.push([k,0]);for(const k in FS.snap)if(!(k in E))o.push([k,1]);return o}
 function fbQueue(){if(!FBM())return;clearTimeout(FBP);FBP=setTimeout(fbPush,800)}
 async function fbPush(){
@@ -349,17 +350,18 @@ function fbSet(k,v){
   if(t==='c'&&v&&v.id){fbUp(S.custs,v);return v}
   if(t==='p'&&v&&v.id){fbUp(S.prods,v);return v}
   if(t==='d'){S.done[id]=v;return v}
+  if(t==='q'&&typeof v==='number'){MD()[id]=v;return v}
   if(t==='x'&&id==='set'&&v&&typeof v==='object'){S.set=v;applySet();return v}
   if(t==='x'&&id==='seq'){S.seq=Math.max(S.seq|0,+v||0);return v}
 }
-function fbDel(k){const t=k.charAt(0),id=k.slice(2);if(t==='o')S.orders=S.orders.filter(x=>x.id!==id);else if(t==='c')S.custs=S.custs.filter(x=>x.id!==id);else if(t==='p')S.prods=S.prods.filter(x=>x.id!==id);else if(t==='d')delete S.done[id]}
+function fbDel(k){const t=k.charAt(0),id=k.slice(2);if(t==='o')S.orders=S.orders.filter(x=>x.id!==id);else if(t==='c')S.custs=S.custs.filter(x=>x.id!==id);else if(t==='p')S.prods=S.prods.filter(x=>x.id!==id);else if(t==='d')delete S.done[id];else if(t==='q')delete MD()[id]}
 // terapkan data dari online. first = sinkron pertama di HP ini (belum ada catatan sebelumnya)
 function fbIn(B,first){
   const ks=Object.keys(B),pr=first&&ks.length>0&&!S.mod;   // pr: HP baru yang masih berisi data contoh, ganti seluruhnya dengan data online
-  if(pr){S.orders=[];S.custs=[];S.prods=[];S.done={};S.seq=0;FS.snap={}}
+  if(pr){S.orders=[];S.custs=[];S.prods=[];S.done={};S.made={};S.seq=0;FS.snap={}}
   const E=fbEnts();let ch=0,mx=FS.since||0;
   ks.forEach(k=>{
-    const r=B[k];if(!r||typeof r.m!=='number'||!/^[ocpdx]_/.test(k))return;
+    const r=B[k];if(!r||typeof r.m!=='number'||!/^[ocpdxq]_/.test(k))return;
     const del=r.x?1:0;if(!del&&typeof r.d!=='string')return;
     if(r.m>mx)mx=r.m;
     const has=k in E;let use=true;
@@ -539,10 +541,10 @@ pmo:()=>{PR[t.dataset.w].m=v;render()},pnv:()=>{const Q=PR[t.dataset.w],d=+t.dat
 xm:()=>{XM=v;render()},xo:()=>{XO=!XO;render()},xb:()=>{XB=v;XQ='';render()},xt:()=>{XT=v;XQ='';XO=false;render()},lunas:()=>lunas(id),lt:()=>{LT=v;render()},mn:menu,mset:setForm,mbk:bkForm,msy:syForm,mup:upForm,upd:cekUpd,fbk:fbKey,fbt:()=>fbToggle(t),
 met:()=>{NO.m=v;document.querySelectorAll('[data-a=met]').forEach(b=>b.classList.toggle('on',b===t));upd()},
 pd:()=>{PD=add(PD,+t.dataset.d);render()},flt:()=>{const c0=document.querySelector('.chips.ct'),x=c0?c0.scrollLeft:0;F=v;render();const n=document.querySelector('.chips.ct'),a=n&&n.querySelector('.on');if(n){n.scrollLeft=x;if(a){const l=a.offsetLeft,r=l+a.offsetWidth;if(l<n.scrollLeft+6)n.scrollLeft=l-6;else if(r>n.scrollLeft+n.clientWidth-6)n.scrollLeft=r-n.clientWidth+6}}},seg:()=>{DT=v;DQ='';render()},
-done:()=>{const k=PD+'|'+id;S.done[k]=!S.done[k];save();render()},now:()=>{PD=TODAY;render()},tg:()=>{const k=t.dataset.k,n=+t.dataset.t,c=t.closest('.pc'),key=PD+'|'+k,was=madeOf(k,n)>=n;MK[key]=was?0:n;saveMK();if(!!S.done[key]!==!was){S.done[key]=!was;save()}c.querySelector('.mi').value=was?'':n;updCard(c,k,n)},
+done:()=>{const k=PD+'|'+id;S.done[k]=!S.done[k];save();render()},now:()=>{PD=TODAY;render()},tg:()=>{const k=t.dataset.k,n=+t.dataset.t,c=t.closest('.pc'),key=PD+'|'+k,was=madeOf(k,n)>=n;MK[key]=was?0:n;saveMK();MD()[key]=was?0:n;if(!!S.done[key]!==!was)S.done[key]=!was;save();c.querySelector('.mi').value=was?'':n;updCard(c,k,n)},
 ec:()=>custForm(id),sc:()=>saveC(id),dc:()=>delC(id),ep:()=>prodForm(id),sp:()=>saveP(id),dp:()=>delP(id),set:setForm,ss:saveSet,bk:backup,nota:()=>nota(id),npv:()=>notaPrev(id),prn:()=>printNota(id),rs:()=>$('#fl').click(),demo:()=>{S=mig(seed());applySet();save();render();toast('Data contoh dimuat')}};if(m[a])m[a]()});
 document.addEventListener('input',e=>{const t=e.target,i=t.id,d=t.dataset||{};
-if(t.classList&&t.classList.contains('mi')){const n0=+d.t,raw=t.value.replace(/\D/g,'').slice(0,6);let n=raw===''?0:parseInt(raw,10);if(n>n0){n=n0;toast('Maksimal '+n0+' (total produksi)')}t.value=raw===''?'':String(n);const key=PD+'|'+d.k;MK[key]=n;saveMK();const dn=n>=n0&&n0>0;if(!!S.done[key]!==dn){S.done[key]=dn;save()}updCard(t.closest('.pc'),d.k,n0);return}
+if(t.classList&&t.classList.contains('mi')){const n0=+d.t,raw=t.value.replace(/\D/g,'').slice(0,6);let n=raw===''?0:parseInt(raw,10);if(n>n0){n=n0;toast('Maksimal '+n0+' (total produksi)')}t.value=raw===''?'':String(n);const key=PD+'|'+d.k;MK[key]=n;saveMK();const dn=n>=n0&&n0>0;if(MD()[key]!==n)MD()[key]=n;if(!!S.done[key]!==dn)S.done[key]=dn;save();updCard(t.closest('.pc'),d.k,n0);return}
 if(i==='q'){Q=t.value;$('#lst').innerHTML=listHtml()}
 else if(i==='dq'){DQ=t.value;$('#dl').innerHTML=dlist()}
 else if(i==='xq'){XQ=t.value;$('#xl').innerHTML=keuList()}
