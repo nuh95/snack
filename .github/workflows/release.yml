@@ -68,8 +68,8 @@ jobs:
           test -n "$APK" || { echo "::error::APK release tidak ditemukan"; exit 1; }
           mkdir -p out
           "$BT/zipalign" -p -f 4 "$APK" "$RUNNER_TEMP/aligned.apk"
-          "$BT/apksigner" sign --ks "$RUNNER_TEMP/release.jks" --ks-pass env:KS_PASS --ks-key-alias "$KEY_ALIAS" --key-pass env:KEY_PASS --out "out/pesanan-snack-v$VERSION.apk" "$RUNNER_TEMP/aligned.apk"
-          "$BT/apksigner" verify --print-certs "out/pesanan-snack-v$VERSION.apk"
+          "$BT/apksigner" sign --ks "$RUNNER_TEMP/release.jks" --ks-pass env:KS_PASS --ks-key-alias "$KEY_ALIAS" --key-pass env:KEY_PASS --out "out/cici-snack-v$VERSION.apk" "$RUNNER_TEMP/aligned.apk"
+          "$BT/apksigner" verify --print-certs "out/cici-snack-v$VERSION.apk"
           rm -f "$RUNNER_TEMP/release.jks"
       - uses: actions/upload-artifact@v4
         with:
@@ -79,6 +79,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ env.VERSION }}
-          name: Pesanan Snack v${{ env.VERSION }}
+          name: Cici Snack v${{ env.VERSION }}
           files: out/*.apk
           generate_release_notes: true
